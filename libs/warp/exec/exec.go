@@ -1,4 +1,4 @@
-package warpservice
+package exec
 
 import (
 	"errors"
@@ -15,16 +15,16 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type WarpService struct {
-	log    *zerolog.Logger
-	config *appconfig.AppConfig
+type WarpExec struct {
+	log     *zerolog.Logger
+	appconf *appconfig.AppConfig
 }
 
-var warp *WarpService
+var warp_exec *WarpExec
 
-// Initialize WarpService
-func Init() (*WarpService, error) {
-	if warp != nil {
+// Initialize WarpExec
+func Init() (*WarpExec, error) {
+	if warp_exec != nil {
 		return nil, errors.New("warp is already initialized")
 	}
 
@@ -37,27 +37,28 @@ func Init() (*WarpService, error) {
 		return nil, fmt.Errorf("Not able to get AppConfig: %w", err)
 	}
 
-	warp = &WarpService{
-		log:    log,
-		config: config,
+	warp_exec = &WarpExec{
+		log:     log,
+		appconf: config,
 	}
 
-	return warp, nil
+	return warp_exec, nil
 }
 
-// Get WarpService pointer
-func Get() (*WarpService, error) {
-	if warp == nil {
-		return nil, errors.New("warp is not initialized")
+// Get WarpExec pointer
+func Get() (*WarpExec, error) {
+	if warp_exec == nil {
+		return nil, errors.New("WarpExec is not initialized")
 	}
-	return warp, nil
+	return warp_exec, nil
 }
 
-func (warpserv *WarpService) EnsureIsRunning() error {
-	guiProcessPath := warpserv.config.WarpFolderPath + "\\" + warpserv.config.WarpProcessName
+// Ensure that Warp executable is running
+func (warpexec *WarpExec) EnsureIsRunning() error {
+	guiProcessPath := warpexec.appconf.WarpFolderPath + "\\" + warpexec.appconf.WarpProcessName
 
 	// Check if Warp is installed
-	warpInstalled, err := warpserv.IsInstalled()
+	warpInstalled, err := warpexec.IsInstalled()
 	if err != nil {
 		return fmt.Errorf("Could not check if Warp is installed:\n %w", err)
 	}
@@ -66,33 +67,33 @@ func (warpserv *WarpService) EnsureIsRunning() error {
 	}
 
 	// Check if Warp process is running
-	warpRunning, err := warpserv.IsRunning()
+	warpRunning, err := warpexec.IsRunning()
 	if err != nil {
 		return fmt.Errorf("error while checking if Warp is running:\n %w", err)
 	}
 	if warpRunning {
-		warpserv.log.Info().Msgf("'%v' is running", warpserv.config.WarpProcessName)
+		warpexec.log.Info().Msgf("'%v' is running", warpexec.appconf.WarpProcessName)
+		return nil
 	} else {
-		warpserv.log.Error().Msgf("'%v' is NOT running! Trying to start it again...", warpserv.config.WarpProcessName)
+		warpexec.log.Error().Msgf("'%v' is NOT running! Trying to start it again...", warpexec.appconf.WarpProcessName)
 		err := processutil.StartProcess(guiProcessPath)
 		if err != nil {
 			return fmt.Errorf("error while starting Warp:\n %w", err)
 		}
+		return warpexec.waitForWarpToStart(20, 500*time.Millisecond)
 	}
-
-	return warpserv.WaitForProcessToStart(20, 500*time.Millisecond)
 }
 
-// Check if Warp is installed
-func (warpserv *WarpService) IsInstalled() (bool, error) {
+// Check if Warp executable is installed
+func (warpexec *WarpExec) IsInstalled() (bool, error) {
 	// Check if Warp's folder exists
-	warpDirExists, err := fs.DirExists(warpserv.config.WarpFolderPath)
+	warpDirExists, err := fs.DirExists(warpexec.appconf.WarpFolderPath)
 	if err != nil {
 		return false, fmt.Errorf("Could not check if Warp's folder exists:\n %w", err)
 	}
 
 	// Check if Warp GUI executable exists
-	warpGuiExists, err := fs.FileExists(warpserv.config.WarpFolderPath + "\\" + warpserv.config.WarpProcessName)
+	warpGuiExists, err := fs.FileExists(warpexec.appconf.WarpFolderPath + "\\" + warpexec.appconf.WarpProcessName)
 	if err != nil {
 		return false, fmt.Errorf("Could not check if Warp GUI exists:\n %w", err)
 	}
@@ -105,10 +106,10 @@ func (warpserv *WarpService) IsInstalled() (bool, error) {
 }
 
 // Check if Warp process is running
-func (warpserv *WarpService) IsRunning() (bool, error) {
-	warpRunning, err := processutil.IsProcessRunningByName(warpserv.config.WarpProcessName)
+func (warpexec *WarpExec) IsRunning() (bool, error) {
+	warpRunning, err := processutil.IsProcessRunningByName(warpexec.appconf.WarpProcessName)
 	if err != nil {
-		return false, fmt.Errorf("error searching for '%v' process:\n %w", warpserv.config.WarpProcessName, err)
+		return false, fmt.Errorf("error searching for '%v' process:\n %w", warpexec.appconf.WarpProcessName, err)
 	}
 	if warpRunning {
 		return true, nil
@@ -118,7 +119,7 @@ func (warpserv *WarpService) IsRunning() (bool, error) {
 }
 
 // Check if Warp process is connected
-func (warpserv *WarpService) IsConnected() (bool, error) {
+func (warpexec *WarpExec) IsConnected() (bool, error) {
 	cmd := exec.Command("warp-cli", "status")
 	out, err := cmd.Output()
 	if err != nil {
@@ -133,7 +134,7 @@ func (warpserv *WarpService) IsConnected() (bool, error) {
 }
 
 // Connect Warp to the Cloudflare service
-func (warpserv *WarpService) Connect() (bool, error) {
+func (warpexec *WarpExec) Connect() (bool, error) {
 	cmd := exec.Command("warp-cli", "connect")
 	out, err := cmd.Output()
 	if err != nil {
@@ -148,10 +149,10 @@ func (warpserv *WarpService) Connect() (bool, error) {
 }
 
 // Wait for Warp process to start
-func (warpserv *WarpService) WaitForProcessToStart(maxAttempts int, waitTime time.Duration) error {
-	warpRunning, err := warpserv.IsRunning()
+func (warpexec *WarpExec) waitForWarpToStart(maxAttempts int, waitTime time.Duration) error {
+	warpRunning, err := warpexec.IsRunning()
 	if err != nil {
-		return fmt.Errorf("could not check if '%v' is running:\n %w", warpserv.config.WarpProcessName, err)
+		return fmt.Errorf("could not check if '%v' is running:\n %w", warpexec.appconf.WarpProcessName, err)
 	}
 
 	if warpRunning {
@@ -159,23 +160,23 @@ func (warpserv *WarpService) WaitForProcessToStart(maxAttempts int, waitTime tim
 	}
 
 	for attempt := 1; attempt < maxAttempts; attempt++ {
-		warpserv.log.Debug().Msgf("[%v/%v] Waiting for '%v' to start...",
-			attempt, maxAttempts, warpserv.config.WarpProcessName)
+		warpexec.log.Debug().Msgf("[%v/%v] Waiting for '%v' to start...",
+			attempt, maxAttempts, warpexec.appconf.WarpProcessName)
 		time.Sleep(waitTime)
 
-		warpRunning, err = warpserv.IsRunning()
+		warpRunning, err = warpexec.IsRunning()
 		if err != nil {
 			return fmt.Errorf("could not check if '%v' is running:\n %w",
-				warpserv.config.WarpProcessName, err)
+				warpexec.appconf.WarpProcessName, err)
 		}
 
 		if warpRunning {
-			warpserv.log.Info().Msgf("'%v' successfully started after %v attempts",
-				warpserv.config.WarpProcessName, attempt)
+			warpexec.log.Info().Msgf("'%v' successfully started after %v attempts",
+				warpexec.appconf.WarpProcessName, attempt)
 			return nil
 		}
 	}
 
 	return fmt.Errorf("could not start '%v' after %v attempts",
-		warpserv.config.WarpProcessName, maxAttempts)
+		warpexec.appconf.WarpProcessName, maxAttempts)
 }

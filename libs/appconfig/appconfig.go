@@ -7,6 +7,7 @@ import (
 type AppConfig struct {
 	WarpFolderPath  string
 	WarpProcessName string
+	WarpServiceName string
 }
 
 var config *AppConfig
@@ -19,6 +20,7 @@ func Init() (*AppConfig, error) {
 	config = &AppConfig{
 		WarpFolderPath:  "C:\\Program Files\\Cloudflare\\Cloudflare WARP",
 		WarpProcessName: "Cloudflare WARP.exe",
+		WarpServiceName: "CloudflareWARP",
 	}
 	return config, nil
 }

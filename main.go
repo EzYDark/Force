@@ -7,12 +7,13 @@ import (
 
 	"github.com/ezydark/warpenforcer/libs/appconfig"
 	"github.com/ezydark/warpenforcer/libs/logger"
-	"github.com/ezydark/warpenforcer/libs/warpservice"
+	warp_exec "github.com/ezydark/warpenforcer/libs/warp/exec"
+	warp_serv "github.com/ezydark/warpenforcer/libs/warp/serv"
 	"github.com/fatih/color"
 )
 
-func waitForInputToEnd() error {
-	_, err := fmt.Print(color.New(color.FgRed).Sprint("\nEverything is done!\n--- Press Enter to close this window..."))
+func waitForInput() error {
+	_, err := fmt.Print(color.New(color.FgRed).Sprint("-- Press Enter to continue..."))
 	if err != nil {
 		return fmt.Errorf("Could not Print:\n %w", err)
 	}
@@ -35,8 +36,9 @@ func main() {
 		return
 	}
 	log.Info().Msg(color.New(color.Bold).Sprintf("WarpEnforcer starting..."))
+	waitForInput()
 
-	// Ensure if running with admin rights
+	// Ensure to run myself as admin
 	// if err = admin.EnsureAdmin(); err != nil {
 	// 	log.Fatal().Msgf("Could not ensure if I ran as admin:\n %v", err)
 	// }
@@ -47,16 +49,31 @@ func main() {
 		log.Fatal().Msgf("Could not initialize appconfig:\n %v", err)
 	}
 
-	// Check for existing and running Warp
-	warp, err := warpservice.Init()
+	// Check for existing and running Warp executable
+	warpexec, err := warp_exec.Init()
 	if err != nil {
 		log.Fatal().Msgf("Could not initialize WarpService:\n %v", err)
 	}
-	err = warp.EnsureIsRunning()
+	err = warpexec.EnsureIsRunning()
 	if err != nil {
 		log.Fatal().Msgf("Could not ensure Warp service is running:\n %v", err)
 	}
 
+	// Initialize Warp service manager, open the specific service, and get the service's configuration
+	warpserv, err := warp_serv.Init()
+	if err != nil {
+		log.Fatal().Msgf("Could not initialize Warp service manager:\n %v", err)
+	}
+	defer warpserv.Close()
+
+	// Check if Warp service is enabled for startup
+	err = warpserv.EnsureIsEnabled()
+	if err != nil {
+		log.Fatal().Msgf("Could not ensure Warp service is enabled:\n %v", err)
+	} else {
+		log.Info().Msg("Warp service is enabled for startup")
+	}
+
 	// Prevent app from being closed at the end
-	waitForInputToEnd()
+	waitForInput()
 }
