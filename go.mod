@@ -1,4 +1,4 @@
-module github.com/ezydark/warpenforcer
+module github.com/ezydark/force
 
 go 1.24.1
 

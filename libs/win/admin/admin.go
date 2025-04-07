@@ -6,26 +6,24 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/ezydark/warpenforcer/libs/logger"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/sys/windows"
 )
 
-func EnsureAdmin() error {
-	if !IsSelfAdmin() {
-		if err := RunSelfAsAdmin(); err != nil {
-			return fmt.Errorf("Could not run it self as admin:\n %w", err)
+type Admin struct{}
+
+func (a *Admin) EnsureSelfAdmin() error {
+	if !a.IsSelfAdmin() {
+		if err := a.RunSelfAsAdmin(); err != nil {
+			return fmt.Errorf("Could not run self as admin:\n %w", err)
 		}
 
-		log, err := logger.Get()
-		if err != nil {
-			return fmt.Errorf("Could not get Logger:\n %w", err)
-		}
-		log.Fatal().Msg("Stopping this instance of program... Starting as admin instead")
+		log.Fatal().Msg("Stopping this instance of program... Starting as admin instead\n")
 	}
 	return nil
 }
 
-func IsSelfAdmin() bool {
+func (a *Admin) IsSelfAdmin() bool {
 	var sid *windows.SID
 
 	err := windows.AllocateAndInitializeSid(
@@ -45,7 +43,7 @@ func IsSelfAdmin() bool {
 	return err == nil && member
 }
 
-func RunSelfAsAdmin() error {
+func (a *Admin) RunSelfAsAdmin() error {
 	execPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to get executable path: %w", err)

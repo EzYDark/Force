@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/ezydark/warpenforcer/libs/logger"
+	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/process"
 )
 
-func IsProcessRunningByName(name string) (bool, error) {
+type Process struct{}
+
+func (p *Process) IsProcessRunningByName(name string) (bool, error) {
 	processes, err := process.Processes()
 	if err != nil {
 		return false, fmt.Errorf("error while getting list of processes:\n %w", err)
@@ -26,7 +28,7 @@ func IsProcessRunningByName(name string) (bool, error) {
 	return false, nil
 }
 
-func StartProcess(path string, args ...string) error {
+func (p *Process) StartProcess(path string, args ...string) error {
 	cmd := exec.Command(path, args...)
 
 	cmd.Stdout = nil
@@ -38,11 +40,6 @@ func StartProcess(path string, args ...string) error {
 	}
 
 	processID := cmd.Process.Pid
-
-	log, err := logger.Get()
-	if err != nil {
-		return fmt.Errorf("failed to get logger:\n %w", err)
-	}
 
 	log.Info().Msgf("Started process '%s' with PID '%d'", path, processID)
 

@@ -1,79 +1,77 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 
-	"github.com/ezydark/warpenforcer/libs/appconfig"
-	"github.com/ezydark/warpenforcer/libs/logger"
-	warp_exec "github.com/ezydark/warpenforcer/libs/warp/exec"
-	warp_serv "github.com/ezydark/warpenforcer/libs/warp/serv"
+	"github.com/ezydark/force/libs/logger"
+	"github.com/ezydark/force/libs/util"
+	"github.com/ezydark/force/libs/warp"
+	"github.com/ezydark/force/libs/win"
 	"github.com/fatih/color"
+	"github.com/rs/zerolog/log"
 )
-
-func waitForInput() error {
-	_, err := fmt.Print(color.New(color.FgRed).Sprint("-- Press Enter to continue..."))
-	if err != nil {
-		return fmt.Errorf("Could not Print:\n %w", err)
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	_, err = reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("Could not ReadString:\n %w", err)
-	}
-
-	return nil
-}
 
 func main() {
 	// Initialize logger
-	log, err := logger.Init()
+	err := logger.Init()
 	if err != nil {
-		fatal_tag := color.New(color.FgRed).Sprintf("[FATAL]")
-		fmt.Println(fatal_tag, "Could not initialize logger:", err)
+		fatal_tag := color.New(color.FgRed, color.Bold).Sprintf("[FATAL]")
+		fmt.Println(fatal_tag, "Could not initialize custom logger:", err)
 		return
 	}
 	log.Info().Msg(color.New(color.Bold).Sprintf("WarpEnforcer starting..."))
-	waitForInput()
+	util.WaitForInput()
 
 	// Ensure to run myself as admin
-	// if err = admin.EnsureAdmin(); err != nil {
-	// 	log.Fatal().Msgf("Could not ensure if I ran as admin:\n %v", err)
-	// }
-
-	// Prepare configuration
-	_, err = appconfig.Init()
+	err = win.Admin.EnsureSelfAdmin()
 	if err != nil {
-		log.Fatal().Msgf("Could not initialize appconfig:\n %v", err)
+		log.Fatal().Msgf("Could not ensure if I ran as admin:\n %v", err)
 	}
 
-	// Check for existing and running Warp executable
-	warpexec, err := warp_exec.Init()
+	// Check if Warp service is installed
+	warpInstalled, err := warp.IsInstalled()
 	if err != nil {
-		log.Fatal().Msgf("Could not initialize WarpService:\n %v", err)
+		log.Fatal().Msgf("Could not ensure Warp is installed:\n %v", err)
 	}
-	err = warpexec.EnsureIsRunning()
+	if !warpInstalled {
+		log.Fatal().Msg("Warp is not properly installed! Install it using package manager like 'winget' or other.")
+	} else {
+		log.Info().Msg("Warp is installed")
+	}
+
+	// Check if Warp service is enabled for startup and running
+	serv, err := warp.Serv.Init()
+	if err != nil {
+		log.Fatal().Msgf("Could not initialize Windows service manager with Warp service:\n %v", err)
+	}
+	defer serv.Close()
+	err = serv.EnsureIsEnabled()
+	if err != nil {
+		log.Fatal().Msgf("Could not ensure Warp service is enabled for startup:\n %v", err)
+	} else {
+		log.Info().Msg("Warp service is enabled")
+	}
+	err = serv.EnsureIsRunning()
 	if err != nil {
 		log.Fatal().Msgf("Could not ensure Warp service is running:\n %v", err)
-	}
-
-	// Initialize Warp service manager, open the specific service, and get the service's configuration
-	warpserv, err := warp_serv.Init()
-	if err != nil {
-		log.Fatal().Msgf("Could not initialize Warp service manager:\n %v", err)
-	}
-	defer warpserv.Close()
-
-	// Check if Warp service is enabled for startup
-	err = warpserv.EnsureIsEnabled()
-	if err != nil {
-		log.Fatal().Msgf("Could not ensure Warp service is enabled:\n %v", err)
 	} else {
-		log.Info().Msg("Warp service is enabled for startup")
+		log.Info().Msg("Warp service is running")
 	}
+
+	// Check if Warp service is connected to the Cloudflare service
+	warpConnected, err := warp.IsConnected()
+	if err != nil {
+		log.Fatal().Msgf("Could not check Warp connection state to Cloudflare service:\n %v", err)
+	}
+	if !warpConnected {
+		log.Error().Msg("Warp is not connected to the Cloudflare service! Trying to connect again...")
+		err = warp.Connect()
+		if err != nil {
+			log.Fatal().Msgf("Could not connect Warp to the Cloudflare service:\n %v", err)
+		}
+	}
+	log.Info().Msg("Warp is connected to the Cloudflare service")
 
 	// Prevent app from being closed at the end
-	waitForInput()
+	util.WaitForInput()
 }

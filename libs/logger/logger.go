@@ -8,22 +8,28 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
-var logger *zerolog.Logger
+var initialized bool
 
-func Init() (*zerolog.Logger, error) {
-	if logger != nil {
-		return nil, errors.New("logger is already initialized")
+func Init() error {
+	if initialized {
+		return errors.New("logger is already initialized")
 	}
 
+	// Configure global settings
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	zerolog.TimeFieldFormat = "15:04:05.000"
+
+	// Configure custom console writer
 	consoleOutput := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: "15:04:05.000",
 		NoColor:    false,
 	}
 
-	consoleOutput.FormatLevel = func(i interface{}) string {
+	consoleOutput.FormatLevel = func(i any) string {
 		levelStr := strings.ToUpper(fmt.Sprintf("%s", i))
 
 		switch levelStr {
@@ -42,26 +48,24 @@ func Init() (*zerolog.Logger, error) {
 		}
 	}
 
-	consoleOutput.FormatMessage = func(i interface{}) string {
+	consoleOutput.FormatMessage = func(i any) string {
 		return fmt.Sprintf("%s", i)
 	}
 
-	consoleOutput.FormatFieldName = func(i interface{}) string {
+	consoleOutput.FormatFieldName = func(i any) string {
 		return fmt.Sprintf("%s=", i)
 	}
 
-	consoleOutput.FormatFieldValue = func(i interface{}) string {
+	consoleOutput.FormatFieldValue = func(i any) string {
 		return fmt.Sprintf("%s", i)
 	}
 
-	zerolog := zerolog.New(consoleOutput).With().Timestamp().Logger()
-	logger = &zerolog
-	return logger, nil
-}
+	// Create a new logger instance
+	newLogger := zerolog.New(consoleOutput).With().Timestamp().Logger()
 
-func Get() (*zerolog.Logger, error) {
-	if logger == nil {
-		return nil, errors.New("logger not initialized")
-	}
-	return logger, nil
+	// Set the global logger
+	log.Logger = newLogger
+
+	initialized = true
+	return nil
 }

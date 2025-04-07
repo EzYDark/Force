@@ -1,0 +1,15 @@
+{
+  "app": {
+    "InstallPath": "C:\\Program Files\\Force",
+    "ExecName": "force.exe",
+    "LogFileName": "force.log",
+    "ConfigName": "force.json",
+    "ServiceName": "Force"
+  },
+  "warp": {
+    "FolderPath": "C:\\Program Files\\Cloudflare\\Cloudflare WARP",
+    "GUIExecName": "Cloudflare WARP.exe",
+    "SvcExecName": "warp-svc.exe",
+    "ServiceName": "CloudflareWARP"
+  }
+}

@@ -5,28 +5,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ezydark/warpenforcer/libs/appconfig"
-	"github.com/ezydark/warpenforcer/libs/logger"
+	"github.com/ezydark/force/app/config"
+	"github.com/rs/zerolog/log"
+	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
 type WarpServ struct {
-	appconf     *appconfig.AppConfig
-	mgr_service *mgr.Service
-	mgr_manager *mgr.Mgr
+	ServMgr  *mgr.Mgr
+	WarpServ *mgr.Service
 }
 
-var warp_serv *WarpServ
-
-// Initialize the Warp service manager, open the specific service, and get the service's configuration
-func Init() (*WarpServ, error) {
-	if warp_serv != nil {
-		return nil, errors.New("WarpServ is already initialized")
-	}
-
-	appconf, err := appconfig.Get()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load app configuration:\n %w", err)
+// Initialize the Windows service manager with Warp service
+func (s *WarpServ) Init() (*WarpServ, error) {
+	if s != nil {
+		return nil, errors.New("warpserv is already initialized")
 	}
 
 	// Connect to the Windows service manager
@@ -36,122 +29,176 @@ func Init() (*WarpServ, error) {
 	}
 
 	// Open the specific service
-	service, err := manager.OpenService(appconf.WarpServiceName)
+	warp_service_name := config.Warp.ServiceName
+	service, err := manager.OpenService(warp_service_name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open service '%s':\n %w", appconf.WarpServiceName, err)
+		return nil, fmt.Errorf("failed to open service '%s':\n %w", warp_service_name, err)
 	}
 
-	warp_serv = &WarpServ{
-		appconf:     appconf,
-		mgr_service: service,
-		mgr_manager: manager,
+	s = &WarpServ{
+		ServMgr:  manager,
+		WarpServ: service,
 	}
 
-	return warp_serv, nil
+	return s, nil
 }
 
-func Get() (*WarpServ, error) {
-	if warp_serv == nil {
-		return nil, errors.New("WarpServ is not initialized")
-	}
-	return warp_serv, nil
-}
-
-// Close the Warp service manager and service
-func (warpserv *WarpServ) Close() error {
-	if warpserv.mgr_manager != nil {
-		warpserv.mgr_manager.Disconnect()
-		warpserv.mgr_manager = nil
-	}
-	if warpserv.mgr_service != nil {
-		warpserv.mgr_service.Close()
-		warpserv.mgr_service = nil
+// Close the Warp service and Windows service manager
+func (s *WarpServ) Close() error {
+	if s != nil {
+		s.WarpServ.Close()
+		s.WarpServ = nil
+		s.ServMgr.Disconnect()
+		s.ServMgr = nil
 	}
 	return nil
 }
 
 // Ensure that the Warp service is set to startup automatically
-func (warpserv *WarpServ) EnsureIsEnabled() error {
-	mgr_config, err := warpserv.mgr_service.Config()
-	if err != nil {
-		return fmt.Errorf("failed to get service config:\n %w", err)
-	}
-
-	enabled, err := warpserv.IsEnabled()
+func (s *WarpServ) EnsureIsEnabled() error {
+	enabled, err := s.IsEnabled()
 	if err != nil {
 		return err
 	}
 	if enabled {
 		return nil
 	} else {
-		newConfig := mgr.Config{
-			StartType: mgr.StartAutomatic,
-			// Keep other settings the same
-			DisplayName:      mgr_config.DisplayName,
-			Description:      mgr_config.Description,
-			BinaryPathName:   mgr_config.BinaryPathName,
-			LoadOrderGroup:   mgr_config.LoadOrderGroup,
-			Dependencies:     mgr_config.Dependencies,
-			ServiceStartName: mgr_config.ServiceStartName,
-			DelayedAutoStart: mgr_config.DelayedAutoStart,
-			ErrorControl:     mgr_config.ErrorControl,
-			ServiceType:      mgr_config.ServiceType,
-		}
+		log.Error().Msg("Warp service is not enabled for startup! Trying to enable it...")
+		return s.Enable()
+	}
+}
 
-		err := warpserv.mgr_service.UpdateConfig(newConfig)
-		if err != nil {
-			return fmt.Errorf("failed to update service config: %w", err)
-		}
-
-		return warp_serv.waitForWarpServToUpdate(20, 500*time.Millisecond)
+func (s *WarpServ) EnsureIsRunning() error {
+	isRunning, err := s.IsRunning()
+	if err != nil {
+		return err
+	}
+	if isRunning {
+		return nil
+	} else {
+		log.Error().Msg("Warp service is not running! Trying to start it...")
+		return s.Start()
 	}
 }
 
 // Check if the Warp service is set to startup automatically
-func (warpserv *WarpServ) IsEnabled() (bool, error) {
-	mgr_config, err := warpserv.mgr_service.Config()
+func (s *WarpServ) IsEnabled() (bool, error) {
+	serv_conf, err := s.WarpServ.Config()
 	if err != nil {
 		return false, fmt.Errorf("failed to get service config:\n %w", err)
 	}
 
-	if mgr_config.StartType == mgr.StartAutomatic {
+	if serv_conf.StartType == mgr.StartAutomatic {
 		return true, nil
 	} else {
 		return false, nil
 	}
 }
 
-// Wait for Warp process to start
-func (warpserv *WarpServ) waitForWarpServToUpdate(maxAttempts int, waitTime time.Duration) error {
-	enabled, err := warpserv.IsEnabled()
+func (s *WarpServ) Enable() error {
+	serv_conf, err := s.WarpServ.Config()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get service config:\n %w", err)
+	}
+
+	if serv_conf.StartType == mgr.StartAutomatic {
+		return nil
+	}
+
+	newConfig := mgr.Config{
+		StartType: mgr.StartAutomatic,
+		// Keep other settings the same
+		DisplayName:      serv_conf.DisplayName,
+		Description:      serv_conf.Description,
+		BinaryPathName:   serv_conf.BinaryPathName,
+		LoadOrderGroup:   serv_conf.LoadOrderGroup,
+		Dependencies:     serv_conf.Dependencies,
+		ServiceStartName: serv_conf.ServiceStartName,
+		DelayedAutoStart: serv_conf.DelayedAutoStart,
+		ErrorControl:     serv_conf.ErrorControl,
+		ServiceType:      serv_conf.ServiceType,
+	}
+
+	err = s.WarpServ.UpdateConfig(newConfig)
+	if err != nil {
+		return fmt.Errorf("failed to update service config: %w", err)
+	}
+
+	return s.waitForWarpServToBeEnabled(20, 500*time.Millisecond)
+}
+
+// Check if the Warp service's status is running
+func (s *WarpServ) IsRunning() (bool, error) {
+	status, err := s.WarpServ.Query()
+	if err != nil {
+		return false, fmt.Errorf("failed to get service status:\n %w", err)
+	}
+
+	isRunning := status.State == svc.Running
+
+	return isRunning, nil
+}
+
+func (s *WarpServ) Start() error {
+	err := s.WarpServ.Start()
+	if err != nil {
+		return fmt.Errorf("failed to start service: %w", err)
+	}
+
+	return s.waitForWarpServToBeRunning(20, 500*time.Millisecond)
+}
+
+func (s *WarpServ) waitForWarpServToBeRunning(maxAttempts int, waitTime time.Duration) error {
+	isRunning, err := s.IsRunning()
+	if err != nil {
+		return fmt.Errorf("failed to check Warp service status: %w", err)
+	}
+	if isRunning {
+		return nil
+	}
+
+	for attempt := 1; attempt < maxAttempts; attempt++ {
+		log.Debug().Msgf("[%v/%v] Waiting for '%v' to start...",
+			attempt, maxAttempts, config.Warp.ServiceName)
+		isRunning, err := s.IsRunning()
+		if err != nil {
+			return fmt.Errorf("failed to check Warp service status: %w", err)
+		}
+		if isRunning {
+			log.Debug().Msgf("'%v' started successfully", config.Warp.ServiceName)
+			return nil
+		}
+		time.Sleep(waitTime)
+	}
+	return fmt.Errorf("failed to start service after %v attempts", maxAttempts)
+}
+
+// Wait for Warp service to start
+func (s *WarpServ) waitForWarpServToBeEnabled(maxAttempts int, waitTime time.Duration) error {
+	enabled, err := s.IsEnabled()
+	if err != nil {
+		return fmt.Errorf("failed to check if Warp service is enabled for startup: %w", err)
 	}
 	if enabled {
 		return nil
 	}
 
-	log, err := logger.Get()
-	if err != nil {
-		return fmt.Errorf("failed to get logger: %w", err)
-	}
-
 	for attempt := 1; attempt < maxAttempts; attempt++ {
 		log.Debug().Msgf("[%v/%v] Waiting for '%v' to start...",
-			attempt, maxAttempts, warpserv.appconf.WarpServiceName)
+			attempt, maxAttempts, config.Warp.ServiceName)
 		time.Sleep(waitTime)
 
-		enabled, err = warpserv.IsEnabled()
+		enabled, err = s.IsEnabled()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to check if Warp service is enabled for startup: %w", err)
 		}
 		if enabled {
-			log.Info().Msgf("'%v' successfully started after %v attempts",
-				warpserv.appconf.WarpServiceName, attempt)
+			log.Debug().Msgf("'%v' successfully started after %v attempts",
+				config.Warp.ServiceName, attempt)
 			return nil
 		}
 	}
 
 	return fmt.Errorf("could not enable '%v' for startup after %v attempts",
-		warpserv.appconf.WarpServiceName, maxAttempts)
+		config.Warp.ServiceName, maxAttempts)
 }

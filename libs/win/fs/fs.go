@@ -5,7 +5,9 @@ import (
 	"os"
 )
 
-func FileExists(path string) (bool, error) {
+type Fs struct{}
+
+func (f *Fs) FileExists(path string) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -16,7 +18,7 @@ func FileExists(path string) (bool, error) {
 	return !info.IsDir(), nil
 }
 
-func DirExists(path string) (bool, error) {
+func (f *Fs) DirExists(path string) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
