@@ -1,4 +1,4 @@
-package main
+package serv
 
 import (
 	"fmt"
@@ -12,14 +12,14 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
-const serviceName = "MyGoService"
-const serviceDisplayName = "My Go Service"
-const serviceDescription = "A simple Go service that starts automatically"
+const serviceName = "ezForce"
+const serviceDisplayName = "ezForce"
+const serviceDescription = "Enforcer preventing social media addiction from affecting productivity"
 
-type myService struct{}
+type ezForceServ struct{}
 
 // Execute implements the service logic
-func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+func (m *ezForceServ) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	changes <- svc.Status{State: svc.StartPending}
 
 	// Set up logging
@@ -64,7 +64,7 @@ loop:
 }
 
 func runService() {
-	err := svc.Run(serviceName, &myService{})
+	err := svc.Run(serviceName, &ezForceServ{})
 	if err != nil {
 		log.Fatalf("Service failed: %v", err)
 	}

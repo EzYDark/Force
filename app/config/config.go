@@ -44,11 +44,11 @@ func init() {
 	warp := &WarpConfig{}
 	app := &AppConfig{}
 
-	app.InstallPath = "C:\\Program Files\\Force"
-	app.ExecName = "force.exe"
-	app.LogFileName = "force.log"
-	app.ConfigName = "force.json"
-	app.ServiceName = "Force"
+	app.InstallPath = "C:\\Program Files\\ezForce"
+	app.ExecName = "ezforce.exe"
+	app.LogFileName = "ezforce.log"
+	app.ConfigName = "ezforce.json"
+	app.ServiceName = "ezForce"
 
 	warp.FolderPath = "C:\\Program Files\\Cloudflare\\Cloudflare WARP"
 	warp.GUIExecName = "Cloudflare WARP.exe"

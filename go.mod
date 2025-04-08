@@ -1,4 +1,4 @@
-module github.com/ezydark/force
+module github.com/ezydark/ezforce
 
 go 1.24.1
 

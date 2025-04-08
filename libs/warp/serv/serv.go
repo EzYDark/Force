@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ezydark/force/app/config"
+	"github.com/ezydark/ezforce/app/config"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"

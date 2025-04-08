@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 
-	"github.com/ezydark/force/libs/logger"
-	"github.com/ezydark/force/libs/util"
-	"github.com/ezydark/force/libs/warp"
-	"github.com/ezydark/force/libs/win"
+	"github.com/ezydark/ezforce/libs/logger"
+	"github.com/ezydark/ezforce/libs/util"
+	"github.com/ezydark/ezforce/libs/warp"
+	"github.com/ezydark/ezforce/libs/win"
 	"github.com/fatih/color"
 	"github.com/rs/zerolog/log"
 )
@@ -59,18 +59,12 @@ func main() {
 	}
 
 	// Check if Warp service is connected to the Cloudflare service
-	warpConnected, err := warp.IsConnected()
+	err = warp.EnsureIsConnected()
 	if err != nil {
 		log.Fatal().Msgf("Could not check Warp connection state to Cloudflare service:\n %v", err)
+	} else {
+		log.Info().Msg("Warp is connected to the Cloudflare service")
 	}
-	if !warpConnected {
-		log.Error().Msg("Warp is not connected to the Cloudflare service! Trying to connect again...")
-		err = warp.Connect()
-		if err != nil {
-			log.Fatal().Msgf("Could not connect Warp to the Cloudflare service:\n %v", err)
-		}
-	}
-	log.Info().Msg("Warp is connected to the Cloudflare service")
 
 	// Prevent app from being closed at the end
 	util.WaitForInput()

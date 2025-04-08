@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ezydark/force/app/config"
-	"github.com/ezydark/force/libs/warp/serv"
-	"github.com/ezydark/force/libs/win"
+	"github.com/ezydark/ezforce/app/config"
+	"github.com/ezydark/ezforce/libs/warp/serv"
+	"github.com/ezydark/ezforce/libs/win"
 	"github.com/rs/zerolog/log"
 )
 

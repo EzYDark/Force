@@ -1,8 +1,8 @@
 package win
 
 import (
-	"github.com/ezydark/force/libs/win/admin"
-	"github.com/ezydark/force/libs/win/fs"
+	"github.com/ezydark/ezforce/libs/win/admin"
+	"github.com/ezydark/ezforce/libs/win/fs"
 	"github.com/shirou/gopsutil/process"
 )
 

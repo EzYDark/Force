@@ -1,10 +1,10 @@
 {
   "app": {
-    "InstallPath": "C:\\Program Files\\Force",
-    "ExecName": "force.exe",
-    "LogFileName": "force.log",
-    "ConfigName": "force.json",
-    "ServiceName": "Force"
+    "InstallPath": "C:\\Program Files\\ezForce",
+    "ExecName": "ezforce.exe",
+    "LogFileName": "ezforce.log",
+    "ConfigName": "ezforce.json",
+    "ServiceName": "ezForce"
   },
   "warp": {
     "FolderPath": "C:\\Program Files\\Cloudflare\\Cloudflare WARP",
